@@ -1,0 +1,4 @@
+build
+assets/*
+output.png
+data.json
