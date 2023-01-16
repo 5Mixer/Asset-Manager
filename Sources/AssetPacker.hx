@@ -23,7 +23,15 @@ typedef OutputSprite = {
 class AssetPacker {
 	/** Directory that source images are located in **/
 	@:alias('p')
-	public var path = "assets";
+	public var sourcePath = "assets";
+
+	/** File path that the packed texture will be written to **/
+	@:alias('o')
+	public var destinationPath = "output.png";
+
+	/** File path that the JSON describe the sprite layout will be written to **/
+	@:alias('j')
+	public var jsonPath = "sprites.json";
 
 	/** Flag to recurse through subdirectories in asset path **/
 	@:alias('d')
@@ -45,7 +53,7 @@ class AssetPacker {
 	@:alias('y')
 	public var maxHeight = 4096;
 
-	var watchTimePauseSeconds = 0.2;
+	final watchTimePauseSeconds = 0.2;
 	var lastFolderStructure:Array<String>;
 	var lastPack = Sys.time();
 
@@ -61,7 +69,7 @@ class AssetPacker {
 
 		Log.log("Building assets.\n");
 
-		var pngPaths = findAllPngsIn(path, deepSearch);
+		var pngPaths = findAllPngsIn(sourcePath, deepSearch);
 
 		Log.log("Found " + pngPaths.length + " pngs.");
 
@@ -85,7 +93,7 @@ class AssetPacker {
 
 	function watchForChanges() {
 		while (true) {
-			var folderContents = findAllPngsIn(path, deepSearch);
+			var folderContents = findAllPngsIn(sourcePath, deepSearch);
 			if (lastFolderStructure.length != folderContents.length) {
 				Log.log("File changes detected, repacking");
 				packImages(folderContents);
@@ -208,14 +216,14 @@ class AssetPacker {
 
 		// Write out image.
 		var outputImage = format.png.Tools.build32BGRA(width, height, bytes.getBytes());
-		var outWriter = sys.io.File.write("output.png", true);
+		var outWriter = sys.io.File.write(destinationPath, true);
 		new format.png.Writer(outWriter).write(outputImage);
 		outWriter.close();
 
 		// Write out JSON data.
-		sys.io.File.saveContent("./data.json", haxe.Json.stringify(outputData));
+		sys.io.File.saveContent(jsonPath, haxe.Json.stringify(outputData));
 
-		Log.log(Log.Colour.BOLD + "Finished and exported to output.png and data.json");
+		Log.log(Log.Colour.BOLD + 'Finished and exported to $destinationPath and $jsonPath');
 	}
 
 	function findAllPngsIn(folder:String, deep = true):Array<String> {
