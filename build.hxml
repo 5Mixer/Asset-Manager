@@ -1,7 +1,7 @@
 -lib format
 -lib bin-packing
 -lib tink_cli
+--dce full
 -cp Sources
-# -x AssetPacker
- -main AssetPacker
- -cpp build
+-main AssetPacker
+-cpp build

@@ -20,19 +20,22 @@ typedef OutputSprite = {
 	var path:String;
 }
 
-@:alias(false)
 class AssetPacker {
 	/** Directory that source images are located in **/
+	@:alias('p')
 	public var path = "assets";
 
 	/** Flag to recurse through subdirectories in asset path **/
-	public var deepSearch = true;
+	@:alias('d')
+	public var deepSearch = false;
 
-	/** Flag to log **/
-	public var log = true;
+	/** Flag to disable logging **/
+	@:alias('q')
+	public var quiet = false;
 
 	/** Flag to continue to watch for changes after packing **/
-	public var watch = true;
+	@:alias('w')
+	public var watch = false;
 
 	/** The maximum width of the output image**/
 	@:alias('x')
@@ -42,9 +45,9 @@ class AssetPacker {
 	@:alias('y')
 	public var maxHeight = 4096;
 
-	var watchTimeMs = 200;
+	var watchTimePauseSeconds = 0.2;
 	var lastFolderStructure:Array<String>;
-	var lastWatchCheck = Sys.time();
+	var lastPack = Sys.time();
 
 	public function new() {}
 
@@ -52,6 +55,8 @@ class AssetPacker {
 	@:defaultCommand
 	public function run() {
 		Log.init();
+		Log.enabled = !quiet;
+
 		Log.logAsciiArt();
 
 		Log.log("Building assets.\n");
@@ -60,16 +65,14 @@ class AssetPacker {
 
 		Log.log("Found " + pngPaths.length + " pngs.");
 
-		packImages(pngPaths, log, maxWidth, maxHeight);
+		packImages(pngPaths);
 
 		lastFolderStructure = pngPaths;
 
-		if (!watch) {
-			return;
+		if (watch) {
+			Log.log(Log.Colour.BOLD_BLUE + "Watching for changes");
+			watchForChanges();
 		}
-
-		var timer = new haxe.Timer(watchTimeMs);
-		timer.run = checkForChanges;
 	}
 
 	/** Print help text **/
@@ -80,40 +83,39 @@ class AssetPacker {
 		Log.log(Cli.getDoc(this));
 	}
 
-	function checkForChanges() {
-		lastWatchCheck = Sys.time();
-		var folderContents = findAllPngsIn(path, deepSearch);
-		if (lastFolderStructure.length != folderContents.length) {
-			Log.log("File changes detected, repacking");
-			packImages(folderContents, false, maxWidth, maxHeight);
-			lastFolderStructure = folderContents;
-		} else {
-			for (file in folderContents) {
-				if (!sys.FileSystem.exists(file)) {
-					Log.log("File " + file + " removed, skipping.");
-					continue;
-				}
-				if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastWatchCheck) {
-					Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
-					packImages(folderContents, false, maxWidth, maxHeight);
-
-					lastFolderStructure = folderContents;
+	function watchForChanges() {
+		while (true) {
+			var folderContents = findAllPngsIn(path, deepSearch);
+			if (lastFolderStructure.length != folderContents.length) {
+				Log.log("File changes detected, repacking");
+				packImages(folderContents);
+			} else {
+				for (file in folderContents) {
+					if (!sys.FileSystem.exists(file)) {
+						Log.log("File " + file + " removed, skipping.");
+						continue;
+					}
+					if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastPack) {
+						Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
+						packImages(folderContents);
+					}
 				}
 			}
+			lastFolderStructure = folderContents.copy();
+
+			Sys.sleep(watchTimePauseSeconds);
 		}
 	}
 
-	function packImages(filePaths:Array<String>, log = true, maxWidth:Int, maxHeight:Int) {
-		// Packing algorithm packs on a canvas this big.
-		var binWidth:Int = maxWidth;
-		var binHeight:Int = maxHeight;
+	function packImages(filePaths:Array<String>) {
+		lastPack = Sys.time();
 
 		// To crop off unused image space.
 		var rightMostPixel = 0;
 		var lowestPixel = 0;
 
 		// Packer and output data
-		var packer = new SimplifiedMaxRectsPacker(binWidth, binHeight);
+		var packer = new SimplifiedMaxRectsPacker(maxWidth, maxHeight);
 		var images = new Array<PlacedImage>();
 		var outputData:Array<OutputSprite> = [];
 
