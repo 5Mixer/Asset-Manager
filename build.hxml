@@ -1,5 +1,6 @@
 -lib format
 -lib bin-packing
+-cp Sources
 -x AssetPacker
 # -main AssetPacker
 # -cpp build

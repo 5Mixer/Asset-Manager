@@ -1,11 +1,7 @@
 package;
 
-import binpacking.GuillotinePacker;
-import binpacking.MaxRectsPacker;
-import binpacking.NaiveShelfPacker;
 import binpacking.SimplifiedMaxRectsPacker;
 import binpacking.Rect;
-import binpacking.ShelfPacker;
 import binpacking.SkylinePacker;
 
 typedef PlacedImage = {
@@ -16,54 +12,19 @@ typedef PlacedImage = {
 	var bytes:haxe.io.Bytes;
 }
 
-class Colour {
-	public static var NORMAL = "";
-	public static var RESET = "\033[m";
-	public static var BOLD = "\033[1m";
-	public static var RED = "\033[31m";
-	public static var GREEN = "\033[32m";
-	public static var YELLOW = "\033[33m";
-	public static var BLUE = "\033[34m";
-	public static var MAGENTA = "\033[35m";
-	public static var CYAN = "\033[36m";
-	public static var BOLD_RED = "\033[1;31m";
-	public static var BOLD_GREEN = "\033[1;32m";
-	public static var BOLD_YELLOW = "\033[1;33m";
-	public static var BOLD_BLUE = "\033[1;34m";
-	public static var BOLD_MAGENTA = "\033[1;35m";
-	public static var BOLD_CYAN = "\033[1;36m";
-	public static var BG_RED = "\033[41m";
-	public static var BG_GREEN = "\033[42m";
-	public static var BG_YELLOW = "\033[43m";
-	public static var BG_BLUE = "\033[44m";
-	public static var BG_MAGENTA = "\033[45m";
-	public static var BG_CYAN = "\033[46m";
+typedef OutputSprite = {
+	var x:Int;
+	var y:Int;
+	var width:Int;
+	var height:Int;
 }
 
 class AssetPacker {
 	public function new() {
-		// Set console encoding to show colours and ASCII on Windows.
-		if (Sys.systemName() == "Windows") {
-			Sys.command("@ECHO OFF >NUL");
-			Sys.command("@chcp 65001>NUL");
-		}
-		Sys.println(Colour.BOLD
-			+ Colour.GREEN
-			+ "
-	 █████╗ ███████╗███████╗███████╗████████╗
-	██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝
-	███████║███████╗███████╗█████╗     ██║
-	██╔══██║╚════██║╚════██║██╔══╝     ██║
-	██║  ██║███████║███████║███████╗   ██║
-	╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝
-		███╗   ███╗ █████╗ ███╗   ██╗ █████╗  ██████╗ ███████╗██████╗ 
-		████╗ ████║██╔══██╗████╗  ██║██╔══██╗██╔════╝ ██╔════╝██╔══██╗
-		██╔████╔██║███████║██╔██╗ ██║███████║██║  ███╗█████╗  ██████╔╝
-		██║╚██╔╝██║██╔══██║██║╚██╗██║██╔══██║██║   ██║██╔══╝  ██╔══██╗
-		██║ ╚═╝ ██║██║  ██║██║ ╚████║██║  ██║╚██████╔╝███████╗██║  ██║
-		╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝\n"
-			+ Colour.RESET);
-		Sys.println("Building assets.\n");
+		Log.init();
+		Log.logAsciiArt();
+
+		Log.log("Building assets.\n");
 
 		var dirname = "assets";
 		var deepSearch = true;
@@ -77,15 +38,11 @@ class AssetPacker {
 		var folderContents = findAllPngsIn(dirname, deepSearch);
 		files = folderContents.pngs;
 
-		if (log) {
-			Sys.println("Found " + files.length + " assets.");
-		}
+		Log.log("Found " + files.length + " assets.");
 		if (folderContents.nonPngs > 0) {
-			if (log) {
-				Sys.println("Ignoring " + folderContents.nonPngs + " non .png file(s).");
-			}
+			Log.log("Ignoring " + folderContents.nonPngs + " non .png file(s).");
 		}
-		Sys.println("");
+		Log.log("");
 
 		packImages(files, log, maxWidth, maxHeight);
 
@@ -105,11 +62,11 @@ class AssetPacker {
 					} else {
 						for (file in folderContents.pngs) {
 							if (!sys.FileSystem.exists(file)) {
-								Sys.println("File " + file + " removed, skipping.");
+								Log.log("File " + file + " removed, skipping.");
 								continue;
 							}
 							if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastWatchCheck) {
-								Sys.println(Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!" + Colour.RESET);
+								Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
 								packImages(folderContents.pngs, false, maxWidth, maxHeight);
 
 								lastWatchCheck = Sys.time();
@@ -146,11 +103,10 @@ class AssetPacker {
 		for (ff in files) {
 			index++;
 			var path = ff;
-			if (log)
-				Sys.println(Colour.BOLD_CYAN + "Processing: " + path + Colour.RESET);
+			Log.log(Log.Colour.BOLD_CYAN + "Processing: " + path);
 
 			if (!sys.FileSystem.exists(path)) {
-				Sys.println("File removed.");
+				Log.log("File removed.");
 				continue;
 			}
 
@@ -162,7 +118,7 @@ class AssetPacker {
 			} catch (e:Dynamic) {
 				if (file != null)
 					file.close();
-				Sys.println("Problem reading file " + ff + ", perhaps it is a corrupt png? Error: " + e);
+				Log.log("Problem reading file " + ff + ", perhaps it is a corrupt png? Error: " + e);
 			}
 			if (file == null || data == null)
 				continue;
@@ -176,12 +132,10 @@ class AssetPacker {
 			var heuristic:LevelChoiceHeuristic = LevelChoiceHeuristic.MinWasteFit;
 			var rect:Rect = packer.insert(rectWidth, rectHeight);
 			if (rect == null) {
-				if (log)
-					Sys.println(Colour.RED + "Failed to pack!" + Colour.RESET);
+				Log.log(Log.Colour.RED + "Failed to pack!");
 				continue;
 			}
-			if (log)
-				Sys.println("Placed " + rectWidth + "x" + rectHeight + " image at " + rect.x + ", " + rect.y);
+			Log.log("Placed " + rectWidth + "x" + rectHeight + " image at " + rect.x + ", " + rect.y);
 
 			// Expand image size if need be.
 			rightMostPixel = Math.ceil(Math.max(rightMostPixel, rect.x + rectWidth));
@@ -209,8 +163,7 @@ class AssetPacker {
 			for (i in 0...barLength)
 				bar += (index / files.length > i / barLength) ? '=' : ' ';
 
-			if (log)
-				Sys.println('[' + bar + ']  ' + index + " / " + files.length + "\n");
+			Log.log('[' + bar + ']  ' + index + " / " + files.length + "\n");
 		}
 
 		// Construct the output image.
@@ -244,7 +197,7 @@ class AssetPacker {
 		// Write out JSON data.
 		sys.io.File.saveContent("./data.json", haxe.Json.stringify(outputData));
 
-		Sys.println(Colour.BOLD + "Finished and exported to output.png and data.json" + Colour.RESET);
+		Log.log(Log.Colour.BOLD + "Finished and exported to output.png and data.json");
 	}
 
 	function findAllPngsIn(folder:String, deep = true):{pngs:Array<String>, nonPngs:Int} {
@@ -253,7 +206,7 @@ class AssetPacker {
 		var filesAll = sys.FileSystem.readDirectory(folder);
 		for (file in filesAll) {
 			if (!sys.FileSystem.exists(folder + "/" + file)) {
-				Sys.println("File removed.");
+				Log.log("File removed.");
 				continue;
 			}
 
@@ -272,13 +225,13 @@ class AssetPacker {
 	}
 
 	// Get pixel at x,y of image. Needs image width and image in haxe bytes.
-	function get(w:Int, bytes:haxe.io.Bytes, x, y) {
+	inline function get(w:Int, bytes:haxe.io.Bytes, x, y) {
 		var i = ((y * w) + (x)) * 4;
 		return {
+			a: bytes.get(i + 3),
 			r: bytes.get(i + 2),
 			g: bytes.get(i + 1),
-			b: bytes.get(i),
-			a: bytes.get(i + 3)
+			b: bytes.get(i)
 		};
 	}
 
