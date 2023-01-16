@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
     - uses: actions/checkout@v3
@@ -24,6 +24,6 @@ jobs:
     - name: Upload build
       uses: actions/upload-artifact@v3
       with:
-        name: build-linux
+        name: build-macos
         path: |
           build/AssetPacker

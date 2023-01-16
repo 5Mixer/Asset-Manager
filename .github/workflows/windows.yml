@@ -1,4 +1,4 @@
-name: Linux
+name: Windows
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     steps:
     - uses: actions/checkout@v3
@@ -20,10 +20,10 @@ jobs:
     - name: Install haxelibs
       run: haxelib install format --always && haxelib install bin-packing --always && haxelib install tink_cli --always && haxelib install hxcpp --always
     - name: Compile
-      run: ./run.sh
+      run: .\run.bat
     - name: Upload build
       uses: actions/upload-artifact@v3
       with:
-        name: build-linux
+        name: build-windows
         path: |
-          build/AssetPacker
+          .\build\AssetPacker.exe
