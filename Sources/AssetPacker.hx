@@ -1,8 +1,8 @@
 package;
 
+import tink.Cli;
 import binpacking.SimplifiedMaxRectsPacker;
 import binpacking.Rect;
-import binpacking.SkylinePacker;
 
 typedef PlacedImage = {
 	var x:Int;
@@ -20,61 +20,90 @@ typedef OutputSprite = {
 	var path:String;
 }
 
+@:alias(false)
 class AssetPacker {
-	public function new() {
+	/** Directory that source images are located in **/
+	public var path = "assets";
+
+	/** Flag to recurse through subdirectories in asset path **/
+	public var deepSearch = true;
+
+	/** Flag to log **/
+	public var log = true;
+
+	/** Flag to continue to watch for changes after packing **/
+	public var watch = true;
+
+	/** The maximum width of the output image**/
+	@:alias('x')
+	public var maxWidth = 4096;
+
+	/** The maximum height of the output image **/
+	@:alias('y')
+	public var maxHeight = 4096;
+
+	var watchTimeMs = 200;
+	var lastFolderStructure:Array<String>;
+	var lastWatchCheck = Sys.time();
+
+	public function new() {}
+
+	/** Execute AssetPacker with flags **/
+	@:defaultCommand
+	public function run() {
 		Log.init();
 		Log.logAsciiArt();
 
 		Log.log("Building assets.\n");
 
-		var dirname = "assets";
-		var deepSearch = true;
-		var log = true;
-		var watch = true;
-		var watchTime = .2;
-		var maxWidth = 5000;
-		var maxHeight = 10000;
-
-		var pngPaths = findAllPngsIn(dirname, deepSearch);
+		var pngPaths = findAllPngsIn(path, deepSearch);
 
 		Log.log("Found " + pngPaths.length + " pngs.");
 
 		packImages(pngPaths, log, maxWidth, maxHeight);
 
-		var lastWatchCheck = Sys.time();
-		var lastFolderStructure = pngPaths;
+		lastFolderStructure = pngPaths;
 
-		if (watch) {
-			while (true) {
-				if ((Sys.time()) - lastWatchCheck > watchTime) {
-					var folderContents = findAllPngsIn(dirname, deepSearch);
-					if (lastFolderStructure.length != folderContents.length) {
-						trace("File added/removed, repacking!");
-						packImages(folderContents, false, maxWidth, maxHeight);
-						lastWatchCheck = Sys.time();
-						lastFolderStructure = folderContents;
-						continue;
-					} else {
-						for (file in folderContents) {
-							if (!sys.FileSystem.exists(file)) {
-								Log.log("File " + file + " removed, skipping.");
-								continue;
-							}
-							if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastWatchCheck) {
-								Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
-								packImages(folderContents, false, maxWidth, maxHeight);
+		if (!watch) {
+			return;
+		}
 
-								lastWatchCheck = Sys.time();
-								lastFolderStructure = folderContents;
-							}
-						}
-					}
+		var timer = new haxe.Timer(watchTimeMs);
+		timer.run = checkForChanges;
+	}
+
+	/** Print help text **/
+	@:command
+	public function help() {
+		Log.init();
+		Log.logAsciiArt();
+		Log.log(Cli.getDoc(this));
+	}
+
+	function checkForChanges() {
+		lastWatchCheck = Sys.time();
+		var folderContents = findAllPngsIn(path, deepSearch);
+		if (lastFolderStructure.length != folderContents.length) {
+			Log.log("File changes detected, repacking");
+			packImages(folderContents, false, maxWidth, maxHeight);
+			lastFolderStructure = folderContents;
+		} else {
+			for (file in folderContents) {
+				if (!sys.FileSystem.exists(file)) {
+					Log.log("File " + file + " removed, skipping.");
+					continue;
+				}
+				if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastWatchCheck) {
+					Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
+					packImages(folderContents, false, maxWidth, maxHeight);
+
+					lastFolderStructure = folderContents;
 				}
 			}
 		}
 	}
 
-	public function packImages(filePaths:Array<String>, log = true, maxWidth:Int, maxHeight:Int) {
+	function packImages(filePaths:Array<String>, log = true, maxWidth:Int, maxHeight:Int) {
 		// Packing algorithm packs on a canvas this big.
 		var binWidth:Int = maxWidth;
 		var binHeight:Int = maxHeight;
@@ -117,7 +146,6 @@ class AssetPacker {
 			// Start packing rectangles
 			var rectWidth:Int = headerData.width;
 			var rectHeight:Int = headerData.height;
-			var heuristic:LevelChoiceHeuristic = LevelChoiceHeuristic.MinWasteFit;
 			var rect:Rect = packer.insert(rectWidth, rectHeight);
 			if (rect == null) {
 				Log.log(Log.Colour.RED + "Failed to pack!");
@@ -190,20 +218,35 @@ class AssetPacker {
 
 	function findAllPngsIn(folder:String, deep = true):Array<String> {
 		var pngs:Array<String> = [];
-		var filesAll = sys.FileSystem.readDirectory(folder);
-		for (file in filesAll) {
-			if (!sys.FileSystem.exists(folder + "/" + file)) {
-				Log.log("File removed.");
+
+		if (!sys.FileSystem.exists(folder)) {
+			Log.log('Failed to read non-existent directory $folder');
+			throw "Cannot pack assets if root directory does not exist";
+			return [];
+		}
+
+		var directoryPaths = try {
+			sys.FileSystem.readDirectory(folder);
+		} catch (e:Any) {
+			Log.log('Failed to read directory $folder, exception $e');
+			throw "Cannot pack assets if root directory cannot be read";
+		}
+
+		for (path in directoryPaths) {
+			var absolutePath = folder + "/" + path;
+			if (!sys.FileSystem.exists(absolutePath)) {
+				Log.log("Path removed.");
 				continue;
 			}
 
-			if (file.substr(file.length - 4) == ".png") {
-				pngs.push(folder + "/" + file);
-			}
-
-			if (deep && sys.FileSystem.isDirectory(folder + "/" + file)) {
-				file = "/" + file;
-				pngs = pngs.concat(findAllPngsIn(folder + file));
+			if (sys.FileSystem.isDirectory(absolutePath)) {
+				if (deep) {
+					pngs = pngs.concat(findAllPngsIn(absolutePath));
+				}
+			} else {
+				if (path.substr(path.length - 4) == ".png") {
+					pngs.push(absolutePath);
+				}
 			}
 		}
 		return pngs;
@@ -221,11 +264,11 @@ class AssetPacker {
 	}
 
 	// Get hexidecimal representation of colours. Keep in mind this may be a weird for PNG format.
-	function colour(r:Int, g:Int, b:Int, a:Int) {
+	inline function colour(r:Int, g:Int, b:Int, a:Int) {
 		return ((a) << 24) + (r << 16) + (g << 8) + (b);
 	}
 
-	public static function main() {
-		new AssetPacker();
+	static function main() {
+		Cli.process(Sys.args(), new AssetPacker()).handle(Cli.exit);
 	}
 }

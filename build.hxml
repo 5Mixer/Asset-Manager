@@ -1,6 +1,7 @@
 -lib format
 -lib bin-packing
+-lib tink_cli
 -cp Sources
--x AssetPacker
-# -main AssetPacker
-# -cpp build
+# -x AssetPacker
+ -main AssetPacker
+ -cpp build
