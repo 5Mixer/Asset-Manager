@@ -20,7 +20,7 @@ jobs:
     - name: Install haxelibs
       run: haxelib install format --always && haxelib install bin-packing --always && haxelib install tink_cli --always && haxelib install hxcpp --always
     - name: Compile
-      run: run.sh
+      run: ./run.sh
     - name: Upload build
       uses: actions/upload-artifact@v3
       with:
