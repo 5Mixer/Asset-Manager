@@ -17,6 +17,7 @@ typedef OutputSprite = {
 	var y:Int;
 	var width:Int;
 	var height:Int;
+	var path:String;
 }
 
 class AssetPacker {
@@ -34,40 +35,34 @@ class AssetPacker {
 		var maxWidth = 5000;
 		var maxHeight = 10000;
 
-		var files:Array<String> = [];
-		var folderContents = findAllPngsIn(dirname, deepSearch);
-		files = folderContents.pngs;
+		var pngPaths = findAllPngsIn(dirname, deepSearch);
 
-		Log.log("Found " + files.length + " assets.");
-		if (folderContents.nonPngs > 0) {
-			Log.log("Ignoring " + folderContents.nonPngs + " non .png file(s).");
-		}
-		Log.log("");
+		Log.log("Found " + pngPaths.length + " pngs.");
 
-		packImages(files, log, maxWidth, maxHeight);
+		packImages(pngPaths, log, maxWidth, maxHeight);
 
 		var lastWatchCheck = Sys.time();
-		var lastFolderStructure = folderContents;
+		var lastFolderStructure = pngPaths;
 
 		if (watch) {
 			while (true) {
 				if ((Sys.time()) - lastWatchCheck > watchTime) {
 					var folderContents = findAllPngsIn(dirname, deepSearch);
-					if (lastFolderStructure.pngs.length != folderContents.pngs.length) {
+					if (lastFolderStructure.length != folderContents.length) {
 						trace("File added/removed, repacking!");
-						packImages(folderContents.pngs, false, maxWidth, maxHeight);
+						packImages(folderContents, false, maxWidth, maxHeight);
 						lastWatchCheck = Sys.time();
 						lastFolderStructure = folderContents;
 						continue;
 					} else {
-						for (file in folderContents.pngs) {
+						for (file in folderContents) {
 							if (!sys.FileSystem.exists(file)) {
 								Log.log("File " + file + " removed, skipping.");
 								continue;
 							}
 							if (sys.FileSystem.stat(file).mtime.getTime() / 1000 > lastWatchCheck) {
 								Log.log(Log.Colour.BOLD_CYAN + "Filesystem change at " + file + ", repacking!");
-								packImages(folderContents.pngs, false, maxWidth, maxHeight);
+								packImages(folderContents, false, maxWidth, maxHeight);
 
 								lastWatchCheck = Sys.time();
 								lastFolderStructure = folderContents;
@@ -79,7 +74,7 @@ class AssetPacker {
 		}
 	}
 
-	public function packImages(files:Array<String>, log = true, maxWidth:Int, maxHeight:Int) {
+	public function packImages(filePaths:Array<String>, log = true, maxWidth:Int, maxHeight:Int) {
 		// Packing algorithm packs on a canvas this big.
 		var binWidth:Int = maxWidth;
 		var binHeight:Int = maxHeight;
@@ -91,21 +86,14 @@ class AssetPacker {
 		// Packer and output data
 		var packer = new SimplifiedMaxRectsPacker(binWidth, binHeight);
 		var images = new Array<PlacedImage>();
-		var outputData:Array<{
-			path:String,
-			x:Int,
-			y:Int,
-			w:Int,
-			h:Int
-		}> = [];
+		var outputData:Array<OutputSprite> = [];
 
 		var index = 0;
-		for (ff in files) {
+		for (filePath in filePaths) {
 			index++;
-			var path = ff;
-			Log.log(Log.Colour.BOLD_CYAN + "Processing: " + path);
+			Log.log(Log.Colour.BOLD_CYAN + "Processing: " + filePath);
 
-			if (!sys.FileSystem.exists(path)) {
+			if (!sys.FileSystem.exists(filePath)) {
 				Log.log("File removed.");
 				continue;
 			}
@@ -113,12 +101,12 @@ class AssetPacker {
 			var file:sys.io.FileInput = null;
 			var data:format.png.Data = null;
 			try {
-				file = sys.io.File.read(path, true);
+				file = sys.io.File.read(filePath, true);
 				data = new format.png.Reader(file).read();
 			} catch (e:Dynamic) {
 				if (file != null)
 					file.close();
-				Log.log("Problem reading file " + ff + ", perhaps it is a corrupt png? Error: " + e);
+				Log.log("Problem reading file " + filePath + ", perhaps it is a corrupt png? Error: " + e);
 			}
 			if (file == null || data == null)
 				continue;
@@ -145,9 +133,9 @@ class AssetPacker {
 			outputData.push({
 				x: Math.floor(rect.x),
 				y: Math.floor(rect.y),
-				w: headerData.width,
-				h: headerData.height,
-				path: path
+				width: headerData.width,
+				height: headerData.height,
+				path: filePath
 			});
 			images.push({
 				x: Math.floor(rect.x),
@@ -161,9 +149,9 @@ class AssetPacker {
 			var bar = "";
 			var barLength = 20;
 			for (i in 0...barLength)
-				bar += (index / files.length > i / barLength) ? '=' : ' ';
+				bar += (index / filePaths.length > i / barLength) ? '=' : ' ';
 
-			Log.log('[' + bar + ']  ' + index + " / " + files.length + "\n");
+			Log.log('[' + bar + ']  ' + index + " / " + filePaths.length + "\n");
 		}
 
 		// Construct the output image.
@@ -200,9 +188,8 @@ class AssetPacker {
 		Log.log(Log.Colour.BOLD + "Finished and exported to output.png and data.json");
 	}
 
-	function findAllPngsIn(folder:String, deep = true):{pngs:Array<String>, nonPngs:Int} {
+	function findAllPngsIn(folder:String, deep = true):Array<String> {
 		var pngs:Array<String> = [];
-		var nonPngs = 0;
 		var filesAll = sys.FileSystem.readDirectory(folder);
 		for (file in filesAll) {
 			if (!sys.FileSystem.exists(folder + "/" + file)) {
@@ -212,16 +199,14 @@ class AssetPacker {
 
 			if (file.substr(file.length - 4) == ".png") {
 				pngs.push(folder + "/" + file);
-			} else {
-				if (sys.FileSystem.isDirectory(folder + "/" + file) == false)
-					nonPngs++;
 			}
+
 			if (deep && sys.FileSystem.isDirectory(folder + "/" + file)) {
 				file = "/" + file;
-				pngs = pngs.concat(findAllPngsIn(folder + file).pngs);
+				pngs = pngs.concat(findAllPngsIn(folder + file));
 			}
 		}
-		return {pngs: pngs, nonPngs: nonPngs};
+		return pngs;
 	}
 
 	// Get pixel at x,y of image. Needs image width and image in haxe bytes.
