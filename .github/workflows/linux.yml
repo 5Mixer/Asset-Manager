@@ -18,7 +18,7 @@ jobs:
       with:
         haxe-version: 4.2.5
     - name: Install haxelibs
-      run: haxelib install format bin-packing tink_cli hxcpp --always
+      run: haxelib install format --always && haxelib install bin-packing --always && haxelib install tink_cli --always && haxelib install hxcpp --always
     - name: Compile
       run: .\run.sh
     - name: Upload build
