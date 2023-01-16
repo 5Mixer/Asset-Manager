@@ -1,0 +1,29 @@
+name: Linux
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    - uses: krdlab/setup-haxe@v1
+      with:
+        haxe-version: 4.2.5
+    - name: Install haxelibs
+      run: haxelib install format bin-packing tink_cli hxcpp --always
+    - name: Compile
+      run: .\run.sh
+    - name: Upload build
+      uses: actions/upload-artifact@v3
+      with:
+        name: build
+        path: |
+          build/AssetPacker
