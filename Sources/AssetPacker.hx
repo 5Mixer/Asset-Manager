@@ -17,7 +17,6 @@ typedef OutputSprite = {
 	var y:Int;
 	var width:Int;
 	var height:Int;
-	var path:String;
 }
 
 class AssetPacker {
@@ -125,7 +124,7 @@ class AssetPacker {
 		// Packer and output data
 		var packer = new SimplifiedMaxRectsPacker(maxWidth, maxHeight);
 		var images = new Array<PlacedImage>();
-		var outputData:Array<OutputSprite> = [];
+		var outputData:Map<String, OutputSprite> = [];
 
 		var index = 0;
 		for (filePath in filePaths) {
@@ -168,13 +167,12 @@ class AssetPacker {
 			lowestPixel = Math.ceil(Math.max(lowestPixel, rect.y + rectHeight));
 
 			// Record this images placement
-			outputData.push({
+			outputData[filePath] = {
 				x: Math.floor(rect.x),
 				y: Math.floor(rect.y),
 				width: headerData.width,
-				height: headerData.height,
-				path: filePath
-			});
+				height: headerData.height
+			};
 			images.push({
 				x: Math.floor(rect.x),
 				y: Math.floor(rect.y),
