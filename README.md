@@ -1,16 +1,24 @@
 # Asset-Manager
 A CLI application that packs multiple source textures into a single output texture, alongside a JSON file describe the image layout.
 
-Made with:
+[![Linux](https://github.com/5Mixer/Asset-Manager/actions/workflows/linux.yml/badge.svg)](https://github.com/5Mixer/Asset-Manager/actions/workflows/linux.yml)
+[![MacOS](https://github.com/5Mixer/Asset-Manager/actions/workflows/macos.yml/badge.svg)](https://github.com/5Mixer/Asset-Manager/actions/workflows/macos.yml) 
+[![Windows](https://github.com/5Mixer/Asset-Manager/actions/workflows/windows.yml/badge.svg)](https://github.com/5Mixer/Asset-Manager/actions/workflows/windows.yml) 
+
+### Made with:
  - Haxe
  - Packing algorithms from https://github.com/Tw1ddle/Rectangle-Bin-Packing
  - PNG generation with https://github.com/HaxeFoundation/format.
  - CLI flags with https://github.com/haxetink/tink_cli
 
- Features
+### Features
  - The ability to watch the filesystem. Adding/removing/editing files triggers texture packing.
  - Simple JSON output.
- - Optional recursive discovery of images in source folder.
+ - Optional recursive discovery of images in source folder. 
+
+### Demo
+
+https://user-images.githubusercontent.com/8501694/212623092-c9ee89c3-6cc7-466c-bb54-25063deaa5b6.mp4
 
 ```
 	 █████╗ ███████╗███████╗███████╗████████╗
